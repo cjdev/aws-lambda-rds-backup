@@ -56,5 +56,27 @@ Resources:
               context.succeed(event.key1);  // Echo back the first key value
               // context.fail('Something went wrong');
           };
-      Runtime: nodejs4.3
+      Runtime: nodejs6.10
       Timeout: 25
+
+  permissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref rdsBackup
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt
+        - trigger
+        - Arn
+
+  trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger snapshot backup on a schedule
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt
+            - rdsBackup
+            - Arn
+          Id: rds-backup
