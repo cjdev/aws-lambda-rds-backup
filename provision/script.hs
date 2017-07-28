@@ -5,6 +5,6 @@
 import Network.CloudSeeder
 
 main :: IO ()
-main = cliIO $ deployment "rds-backup" $ do
+main = deployment "rds-backup" $ do
   tags [("cj:squad", "lambda")]
   stack_ "lambda"
