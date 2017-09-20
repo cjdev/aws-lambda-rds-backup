@@ -13,7 +13,7 @@ Manual snapshots, on the other hand, stick around forever--regardless of the sta
 
 ### Provisioning
 
-This tool uses a CloudFormation template to provision a placeholder Lambda function and an associated IAM Role with the required permissions. We use [CloudSeeder](https://github.com/cjdev/cloud-seeder) to execute that CloudFormation template, like so:
+This tool uses a CloudFormation template to provision a placeholder Lambda function and an associated IAM Role with the required permissions. We use [CloudSeeder](https://github.com/cjdev/cloud-seeder) to execute that CloudFormation template:
 
 ```bash
 cd /Provisioning
@@ -22,7 +22,7 @@ cd /Provisioning
 
 ### Deployment
 
-In order to deploy code changes to AWS Lambda, we use [aws-lambda-gulp-boilerplate](https://github.com/tombray/aws-lambda-gulp-boilerplate), like so:
+In order to deploy code changes to AWS Lambda, we use [aws-lambda-gulp-boilerplate](https://github.com/tombray/aws-lambda-gulp-boilerplate):
 
 ```bash
 gulp -l rds-backup
