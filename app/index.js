@@ -1,7 +1,8 @@
 const moment = require("moment").utc
 const AWS = require("aws-sdk")
-const RDS = new AWS.RDS()
 const log = require("loglevel")
+
+const RDS = new AWS.RDS()
 
 //============TYPES==============
 // DBInstance = { DBInstanceIdentifier: String, DBInstanceArn: String, ... }

@@ -1,6 +1,6 @@
 const moment = require("moment").utc
 const log = require("loglevel")
-const backup = require("../index.js")
+const backup = require("../app/index.js")
 
 let snapshotsByDB = { "a": [] }
 

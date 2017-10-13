@@ -1,19 +1,28 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Provision rds-backup job
+Description: rds-backup
 
-Parameters: {}
+Parameters:
+  ProjectName:
+    Type: String
+    Default: rds-backup
+  DeploymentPackageKey:
+    Type: String
+    Description: An S3 object key pointing of a ZIP file, an archive of everything that is needed to run the Lambda function. It is the output of the Build stage of the pipeline.
 
 Resources:
-  executionRole:
+  LambdaRunnerRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      Path: /
       Policies:
         - PolicyName: rds-backup
           PolicyDocument:
@@ -29,54 +38,42 @@ Resources:
               - rds:DescribeDBSnapshots
               - rds:DescribeReservedDBInstances
               - rds:ListTagsForResource
-            - Effect: Allow
-              Resource: "*"
-              Action:
               - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
 
-  rdsBackup:
+  LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: rds-backup
-      Handler: index.handler
-      Role: !GetAtt
-        - executionRole
-        - Arn
       Code:
-        # upload a "hello world" placeholder function -- actual code will be uploaded using gulp
-        ZipFile: >
-          console.log('Loading function');
-
-          exports.handler = function(event, context) {
-              //console.log('Received event:', JSON.stringify(event, null, 2));
-              console.log('value1 =', event.key1);
-              console.log('value2 =', event.key2);
-              context.succeed(event.key1);  // Echo back the first key value
-              // context.fail('Something went wrong');
-          };
+        S3Bucket:
+          'Fn::ImportValue': !Sub '${ProjectName}-pipeline-artifacts-bucket'
+        S3Key: !Ref DeploymentPackageKey
+      FunctionName: rds-backup
+      Handler: app/index.handler
+      Role: !GetAtt LambdaRunnerRole.Arn
       Runtime: nodejs6.10
-      Timeout: 25
+      Timeout: 60 # can be 1 - 300 seconds
 
-  permissionForEventsToInvokeLambda:
+  PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref rdsBackup
+      FunctionName: !Ref LambdaFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt
-        - trigger
-        - Arn
+      SourceArn: !GetAtt Trigger.Arn
 
-  trigger:
+  Trigger:
     Type: AWS::Events::Rule
     Properties:
       Description: Trigger snapshot backup on a schedule
       ScheduleExpression: rate(1 day)
       State: ENABLED
       Targets:
-        - Arn: !GetAtt
-            - rdsBackup
-            - Arn
+        - Arn: !GetAtt LambdaFunction.Arn
           Id: rds-backup
+
+Outputs:
+  LambdaFunction:
+    Description: The ARN of the created Lambda function
+    Value: !GetAtt LambdaFunction.Arn
