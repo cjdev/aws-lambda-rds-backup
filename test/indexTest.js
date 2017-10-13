@@ -3,7 +3,7 @@ const assert = require("assert")
 const moment = require("moment").utc
 const log = require("loglevel")
 
-const backup = require("../index")
+const backup = require("../app/index")
 const sim = require("./backupSimulator.js")
 
 log.setLevel("silent")
