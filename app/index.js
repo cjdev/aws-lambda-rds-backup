@@ -6,7 +6,7 @@ const RDS = new AWS.RDS()
 
 //============TYPES==============
 // DBInstance = { DBInstanceIdentifier: String, DBInstanceArn: String, ... }
-// Snapshot = { DBSnapshotIdentifier: String, SnapshotCreateTime: String, ... }
+// Snapshot = { DBSnapshotIdentifier: String, ... }
 // SnapshotsByDB = Dict [Snapshot]
 
 //=============GENERAL=============
@@ -16,12 +16,11 @@ const describeDBInstances = () => {
     .describeDBInstances({})
     .promise()
     .then(({ DBInstances }) => {
-      log.debug("(describeDBInstances) instances found: \n", DBInstances)
+      log.debug("(describeDBInstances) instances found: \n", JSON.stringify(DBInstances))
       return DBInstances
     })
 }
 
-//=============COPY SNAPS=============
 // databasesWithBackupTags :: [DBInstance] -> Promise [DBInstance]
 // filter databases not tagged with "cj:backup":"true"
 const databasesWithBackupTags = dbInstances => {
@@ -43,6 +42,7 @@ const databasesWithBackupTags = dbInstances => {
   ).then(dbInstances => dbInstances.filter(dbInstance => dbInstance !== null))
 }
 
+//=============COPY SNAPS=============
 // unbackedUpAutomatedSnapshots :: [Snapshot] -> [Snapshot]
 const unbackedUpAutomatedSnapshots = allSnapshots => {
   log.debug("(unbackedUpAutomatedSnapshots) allSnapshots:\n", JSON.stringify(allSnapshots))
@@ -195,20 +195,20 @@ exports.handler = (event) => {
   // now :: Moment
   const now = moment()
 
-  let dbInstances
+  let backupTaggedDBs
   // describeDBInstances :: () -> Promise [DBInstances]
   describeDBInstances()
     .catch(log.error)
+    .then(databasesWithBackupTags)
     .then(data => {
-      dbInstances = data
+      backupTaggedDBs = data
 
       // run backup and prune in parallel
-      databasesWithBackupTags(dbInstances)
-        .then(getSnapshotsToBackup)
+      getSnapshotsToBackup(backupTaggedDBs)
         .then(backupSnapshots)
         .catch(log.error)
 
-      getManualBackups(dbInstances)
+      getManualBackups(backupTaggedDBs)
         .then(snapshotsByDB =>
           Promise.resolve(backupsToDeleteByDB(now, snapshotsByDB)))
         .then(deleteBackups)
