@@ -10,10 +10,23 @@ log.setLevel("silent")
 describe("backup", () => {
 
   describe("difference", () => {
-    it("should get difference of two lists", () => {
-      const arr1 = [1,2,3,4,5]
-      const arr2 = [1,4,3]
-      const expected = [2,5]
+    it("should get difference of two lists of snapshots", () => {
+      const arr1 = [
+        {DBSnapshotIdentifier: 1},
+        {DBSnapshotIdentifier: 2},
+        {DBSnapshotIdentifier: 3},
+        {DBSnapshotIdentifier: 4},
+        {DBSnapshotIdentifier: 5},
+      ]
+      const arr2 = [
+        {DBSnapshotIdentifier: 1},
+        {DBSnapshotIdentifier: 4},
+        {DBSnapshotIdentifier: 3},
+      ]
+      const expected = [
+        {DBSnapshotIdentifier: 2},
+        {DBSnapshotIdentifier: 5},
+      ]
       const actual = backup.difference(arr1, arr2)
       assert.deepEqual(actual, expected)
     })
@@ -32,17 +45,17 @@ describe("backup", () => {
 
       const shouldInclude = (d) => {
         Object.keys(snapshots).map(databaseId => {
-          const createTimeIndex = snapshots[databaseId].findIndex((({SnapshotCreateTime}) =>
-            moment(SnapshotCreateTime).isSame(d, "day")))
-          assert(createTimeIndex !== -1, `expected snapshots to include ${d}, but they did not`)
+          const backupTimeIndex = snapshots[databaseId].findIndex((({backupTime}) =>
+            moment(backupTime).isSame(d, "day")))
+          assert(backupTimeIndex !== -1, `expected snapshots to include ${d}, but they did not`)
         })
       }
 
       const shouldNotInclude = (d) => {
         Object.keys(snapshots).map(databaseId => {
-          const createTimeIndex = snapshots[databaseId].findIndex((({SnapshotCreateTime}) =>
-            moment(SnapshotCreateTime).isSame(d, "day")))
-          assert(createTimeIndex === -1, `expected snapshots to not include ${d}, but they did`)
+          const backupTimeIndex = snapshots[databaseId].findIndex((({backupTime}) =>
+            moment(backupTime).isSame(d, "day")))
+          assert(backupTimeIndex === -1, `expected snapshots to not include ${d}, but they did`)
         })
       }
 

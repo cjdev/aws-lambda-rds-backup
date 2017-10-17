@@ -14,10 +14,10 @@ const advanceDay = () => time.add(1, "day")
 const captureSnapshot = () => snapshotsByDB = Object.assign({}, ...Object.keys(snapshotsByDB)
   .map(databaseId => (
     { [databaseId]: snapshotsByDB[databaseId].concat(
-      { DBSnapshotIdentifier: genId(),
-        SnapshotCreateTime: time.clone()
-      })
-    }
+      { DBSnapshotIdentifier: `${genId()}-${time.clone().format("YYYY-MM-DD-HH-mm")}`,
+        backupTime: time.clone()
+      }
+    )}
   )))
 
 
