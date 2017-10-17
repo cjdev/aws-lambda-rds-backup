@@ -9,6 +9,9 @@ const RDS = new AWS.RDS()
 // Snapshot = { DBSnapshotIdentifier: String, ... }
 // SnapshotsByDB = Dict [Snapshot]
 
+// Backup = { DBSnapshotIdentifier: String, backupTime: String, ... }
+// BackupsByDB = Dict [Backup]
+
 //=============GENERAL=============
 // describeDBInstances :: () -> Promise [DBInstance]
 const describeDBInstances = () => {
@@ -120,15 +123,18 @@ const backupsToDeleteByDB = (now, snapshotsByDB) => {
     return { [databaseId]: backupsToRetain(now, snapshotsByDB[databaseId]) }
   }))
 
-  log.debug("(backupsToDeleteByDB) retainByDB: ", retainByDB)
-  const mkOneBackupToDelete = (databaseId) =>
+  log.debug("(backupsToDeleteByDB) retainByDB: ", JSON.stringify(retainByDB))
+  const backupsToDelete = (databaseId) =>
     ({ [databaseId]: difference(snapshotsByDB[databaseId], retainByDB[databaseId]) })
 
-  return Object.assign({}, ...Object.keys(snapshotsByDB).map(mkOneBackupToDelete))
+  return Object.assign({}, ...Object.keys(snapshotsByDB).map(backupsToDelete))
 }
 
-// difference :: [a] -> [a] -> [a]
-const difference = (arr1, arr2) => arr1.filter(x => !arr2.includes(x))
+// difference :: [Snapshot | Backup] -> [Snapshot | Backup] -> [Snapshot | Backup]
+const difference = (arr1, arr2) => arr1.filter(({DBSnapshotIdentifier}) => {
+  const arr2Ids = arr2.map(({DBSnapshotIdentifier}) => DBSnapshotIdentifier)
+  return !arr2Ids.includes(DBSnapshotIdentifier)
+})
 
 // mkGenBoundary :: Moment -> Generator Moment
 const mkGenBoundary = function* (start) {
@@ -147,21 +153,27 @@ const mkGenBoundary = function* (start) {
   }
 }
 
-// backupsToRetain :: Moment, [Snapshot] -> [Snapshot]
+// backupsToRetain :: Moment, [Snapshot] -> [Backup]
 const backupsToRetain = (now, snapshots) => {
   log.debug("(backupsToRetain) snapshots: ", JSON.stringify(snapshots))
   const time = now.clone()
 
+  const snapshotsWithBackupTime = snapshots.map(({ DBSnapshotIdentifier }) => {
+    const dateRegex = /[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}/
+    const backupTime = dateRegex.exec(DBSnapshotIdentifier)[0]
+    return { DBSnapshotIdentifier: DBSnapshotIdentifier, backupTime: backupTime }
+  })
+
   // sort newest to oldest
-  const sorted = snapshots.slice()
-    .sort(({SnapshotCreateTime: a},{SnapshotCreateTime: b}) =>
-      moment(b).diff(moment(a)))
+  const sorted = snapshotsWithBackupTime.slice()
+    .sort(({backupTime: a},{backupTime: b}) =>
+      moment(b, "YYYY-MM-DD-HH-mm").diff(moment(a, "YYYY-MM-DD-HH-mm")))
 
   const prune = (prev, snaps, currentBoundary, genBoundary) => {
     if (snaps.length === 0) return [prev]
     const [next, ...more] = snaps
-    const createTime = moment(next.SnapshotCreateTime)
-    return createTime.isSameOrAfter(currentBoundary, "day")
+    const backupTime = moment(next.backupTime, "YYYY-MM-DD-HH-mm")
+    return backupTime.isSameOrAfter(currentBoundary, "day")
       ? prune(next, more, currentBoundary, genBoundary)
       : prune(next, more, genBoundary.next().value, genBoundary).concat(prev)
   }
@@ -172,7 +184,7 @@ const backupsToRetain = (now, snapshots) => {
   return prune(first, rest, genBoundary.next().value, genBoundary)
 }
 
-// deleteBackups :: SnapshotsByDB -> Promise [String]
+// deleteBackups :: BackupByDB -> Promise [String]
 const deleteBackups = snapshotsByDB => {
   log.debug("(deleteBackups) snapshotsByDB:\n", snapshotsByDB)
   return Promise.all(
